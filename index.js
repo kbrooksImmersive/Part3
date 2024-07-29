@@ -1,108 +1,96 @@
-const express = require('express');
-const app = express();
+const express = require('express')
+const app = express()
+const morgan = require('morgan')
+
+morgan.token('body', (req) => {return JSON.stringify(req.body)})
+app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'))
 
 app.use(express.json())
 
-const requestLogger = (request, response, next) => {
-  console.log('Method:', request.method)
-  console.log('Path:  ', request.path)
-  console.log('Body:  ', request.body)
-  console.log('---')
-  next()
-}
-app.use(requestLogger)
-
-const unknownEndpoint = (request, response) => {
-  response.status(404).send({ error: 'unknown endpoint' })
-}
-
-let notes = [
-  {
-    id: 1,
-    content: 'HTML is easy',
-    important: true,
-  },
-  {
-    id: 2,
-    content: 'Browser can execute only JavaScript',
-    important: false,
-  },
-  {
-    id: 3,
-    content: 'GET and POST are the most important methods of HTTP protocol',
-    important: true,
-  },
-];
+let persons = [
+    { 
+      "id": "1",
+      "name": "Arto Hellas", 
+      "number": "040-123456"
+    },
+    {
+      "id": "2",
+      "name": "Ada Lovelace", 
+      "number": "39-44-5323523"
+    },
+    { 
+      "id": "3",
+      "name": "Dan Abramov", 
+      "number": "12-43-234345"
+    },
+    { 
+      "id": "4",
+      "name": "Mary Poppendieck", 
+      "number": "39-23-6423122"
+    }
+]
 
 app.get('/', (request, response) => {
-  response.send('<h1>Hello World!</h1>');
-});
-
-app.get('/api/notes', (request, response) => {
-  response.json(notes);
-});
-
-app.get('/api/notes/:id', (request, response) => {
-  console.log(`Retrieve note with id`, request.params.id, request)
-  const id = request.params.id;
-  const note = notes.find((note) => note.id == id);
-  if (note) {
-    response.json(note)
-  } else {
-    response.status(404).end()
-  }
-});
-
-const generateId = () => {
-  const maxId = notes.length > 0 ? Math.max(...notes.map(n => Number(n.id)))
-    : 0
-
-  return String(maxId+1)
-}
-
-app.post('/api/notes', (request, response) => {
-  const body = request.body
-  console.log("#########################################")
-  console.log(request)
-  console.log("#########################################")
-  console.log(request.body)
-
-
-  if(!body.content){
-    return response.status(400).json({
-      error: 'content missing'
-    })
-  }
-
-  const note = {
-    content: body.content,
-    important: Boolean(body.important) || false,
-    id: generateId()
-  }
-
-  notes = notes.concat(note)
-
-  response.json(note)
+    response.send('<h1>Phonebook</h1>')
 })
 
-app.delete('/api/notes/:id', (request, response) => {
-  const id = request.params.id
-  const note = notes.find(note => note.id == id)
-  
-  if (note) {
-    notes = notes.filter(note => note.id != id)
+app.get('/api/persons', (request, response) => {
+    response.json(persons)
+})
+
+app.get('/api/persons/:id',(request, response) => {
+    const id = request.params.id
+    const person = persons.find(person => person.id === id)
+    console.log(person.name)
+
+    if(person){
+        response.json(person)
+    }else{
+        response.status(404).end()
+    }
+})
+
+app.delete('/api/persons/:id', (request, response) => {
+    const id = request.params.id
+    persons = persons.filter(person => person.id !== id)
 
     response.status(204).end()
-  } else {
-    response.status(404).end()
-  }
-
-  
 })
 
-app.use(unknownEndpoint)
+app.post('/api/persons', (request, response) => {
+    const body = request.body
 
+    if(!body.number){
+        return response.status(400).json({
+            error: "number missing from request"
+        })
+    }else if(!body.name){
+        return response.status(400).json({
+            error: "name missing from request"
+        })
+    }else if(persons.find(person => person.name === body.name)){
+        return response.status(400).json({
+            error: "name must be unique"
+        })
+    }
 
-const PORT = 3002;
-app.listen(PORT);
-console.log(`Server running on port ${PORT}`);
+    const updatedPerson = {
+        "id": Math.floor(Math.random()*1000000000000),
+        "name": body.name,
+        "number": body.number
+    }
+    persons = persons.concat(updatedPerson)
+
+    response.json(persons)
+    
+})
+
+app.get('/info', (request, response) => {
+    const numEntries = persons.length
+    const article = numEntries > 1 ? 'people' : 'person'
+    response.send(`<p>Phonebook has info for ${numEntries} ${article}</p><p>${Date().toLocaleString()}<\p>`)
+})
+
+const PORT = 3001
+app.listen(PORT)
+console.log(`Server running on port ${PORT}`)
